@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
@@ -9,6 +10,7 @@ using Windows.Media.Control;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace NowPlayingWidget
 {
@@ -20,6 +22,14 @@ namespace NowPlayingWidget
         private DispatcherTimer _hideTimer;
         // Keep track of the current session to clean things properly
         private GlobalSystemMediaTransportControlsSession? _currentSession;
+
+        private GlobalSystemMediaTransportControlsSessionManager? _sessionManager;
+        private readonly List<GlobalSystemMediaTransportControlsSession> _allSessions = new();
+
+        //Svg codes for both play and pause icons
+        private readonly Geometry _playIcon = Geometry.Parse("M 0,1 L 9,6 L 0,11 Z");
+        private readonly Geometry _pauseIcon = Geometry.Parse("M 0,1 H 3 V 11 H 0 Z M 6,1 H 9 V 11 H 6 Z");
+
         public MainWindow()
         {
             InitializeComponent();
@@ -38,6 +48,15 @@ namespace NowPlayingWidget
         {
             base.OnMouseLeftButtonDown(e);
             this.DragMove();
+        }
+
+        // Captures any click on the widget (drag, button press, etc.) to keep it visible
+        protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
+        {
+            base.OnPreviewMouseDown(e);
+
+            // Reset the countdown timer and keep it visible
+            ShowWidget();
         }
 
         private void HideTimer_Tick(object? sender, EventArgs e)
@@ -90,6 +109,7 @@ namespace NowPlayingWidget
             if (_currentSession != null)
             {
                 _currentSession.MediaPropertiesChanged -= Session_MediaPropertiesChanged;
+                _currentSession.PlaybackInfoChanged -= Session_PlaybackInfoChanged;
             }
 
             _currentSession = newSession;
@@ -98,8 +118,33 @@ namespace NowPlayingWidget
             if (_currentSession != null)
             {
                 _currentSession.MediaPropertiesChanged += Session_MediaPropertiesChanged;
+                _currentSession.PlaybackInfoChanged += Session_PlaybackInfoChanged;
+
                 _ = RefreshUIAsync(_currentSession);
+                UpdatePlayPauseIcon(_currentSession);
             }
+        }
+        private void Session_PlaybackInfoChanged(GlobalSystemMediaTransportControlsSession sender, PlaybackInfoChangedEventArgs args)
+        {
+            UpdatePlayPauseIcon(sender, showIfPlaying: true);
+        }
+
+        private void UpdatePlayPauseIcon(GlobalSystemMediaTransportControlsSession session, bool showIfPlaying = false)
+        {
+            var playbackInfo = session.GetPlaybackInfo();
+            bool isPlaying = playbackInfo?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+
+            Dispatcher.Invoke(() =>
+            {
+                PlayPauseIcon.Data = isPlaying ? _pauseIcon : _playIcon;
+                //Nudge the pause icon to keep it centered, with the optical trick to center the play icon
+                PlayPauseIcon.Margin = isPlaying ? new Thickness(0) : new Thickness(2, 0, 0, 0);
+                if (showIfPlaying && isPlaying)
+                {
+                    ShowWidget();
+
+                }
+            });
         }
 
         private async void Session_MediaPropertiesChanged(GlobalSystemMediaTransportControlsSession sender, MediaPropertiesChangedEventArgs args)
@@ -128,7 +173,8 @@ namespace NowPlayingWidget
 
             Dispatcher.Invoke(() =>
             {
-                SongText.Text = $"{properties.Title}\n{properties.Artist}";
+                TitleText.Text = properties.Title;
+                ArtistText.Text = properties.Artist;
 
                 if (albumArtImage != null)
                 {
@@ -138,6 +184,30 @@ namespace NowPlayingWidget
                 // Trigger the visibility cycle whenever a new song updates the UI
                 ShowWidget();
             });
+        }
+
+        private async void BtnPrev_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentSession != null)
+            {
+                await _currentSession.TrySkipPreviousAsync();
+            }
+        }
+
+        private async void BtnPlayPause_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentSession != null)
+            {
+                await _currentSession.TryTogglePlayPauseAsync();
+            }
+        }
+
+        private async void BtnNext_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentSession != null)
+            {
+                await _currentSession.TrySkipNextAsync();
+            }
         }
     }
 }
