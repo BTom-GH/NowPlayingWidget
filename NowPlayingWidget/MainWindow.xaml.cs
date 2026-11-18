@@ -90,17 +90,60 @@ namespace NowPlayingWidget
         //Ask Windows if some media started playing and get the manager
         private async Task StartListeningToMusic()
         {
-            var sessionManager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
-            if (sessionManager != null)
+            _sessionManager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
+            if (_sessionManager != null)
             {
-                sessionManager.CurrentSessionChanged += SessionManager_CurrentSessionChanged;
-                UpdateSong(sessionManager.GetCurrentSession());
+                _sessionManager.SessionsChanged += SessionManager_SessionsChanged;
+                _sessionManager.CurrentSessionChanged += SessionManager_CurrentSessionChanged;
+                SyncSessions();
+                UpdateSong(_sessionManager.GetCurrentSession());
             }
+        }
+
+        private void SessionManager_SessionsChanged(GlobalSystemMediaTransportControlsSessionManager sender, SessionsChangedEventArgs args)
+        {
+            SyncSessions();
         }
 
         private void SessionManager_CurrentSessionChanged(GlobalSystemMediaTransportControlsSessionManager sender, CurrentSessionChangedEventArgs args)
         {
             UpdateSong(sender.GetCurrentSession());
+        }
+
+        // Tracks all open media apps so whichever one starts playing takes over the widget
+        private void SyncSessions()
+        {
+            if (_sessionManager == null) return;
+
+            foreach (var session in _allSessions)
+            {
+                session.PlaybackInfoChanged -= AnySession_PlaybackInfoChanged;
+            }
+            _allSessions.Clear();
+
+            foreach (var session in _sessionManager.GetSessions())
+            {
+                session.PlaybackInfoChanged += AnySession_PlaybackInfoChanged;
+                _allSessions.Add(session);
+            }
+        }
+
+        private void AnySession_PlaybackInfoChanged(GlobalSystemMediaTransportControlsSession sender, PlaybackInfoChangedEventArgs args)
+        {
+            var status = sender.GetPlaybackInfo()?.PlaybackStatus;
+
+            // If a different app just started playing, switch the widget to it immediately
+            if (status == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing && sender != _currentSession)
+            {
+                UpdateSong(sender);
+                return;
+            }
+
+            // Otherwise, if it's the currently displayed app, just update its Play/Pause icon
+            if (sender == _currentSession)
+            {
+                UpdatePlayPauseIcon(sender, showIfPlaying: true);
+            }
         }
 
         private void UpdateSong(GlobalSystemMediaTransportControlsSession? newSession)
