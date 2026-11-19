@@ -2,6 +2,11 @@
 
 Small widget to see and control currently playing media on your computer without having to find or open the app everytime.
 
+<p align="center">
+  <img width="365" height="85" alt="WidgetPreview" src="https://raw.githubusercontent.com/BTom-GH/NowPlayingWidget/master/WidgetPreview.gif" />
+</p>
+
+
 ## Key Features
 
 * **Now Playing Display:** Shows the current track title, artist, and album artwork in a compact desktop widget. Control buttons also let you pause or change track.
