@@ -15,15 +15,24 @@ Small widget to see and control currently playing media on your computer without
 
 ## Build and Run
 
-### Publish a Standalone Executable
-Target the `.csproj` file directly to build a self-contained single-file release executable without `.pdb` debug symbol files:
+### Download (Recommended)
+1. Go to the [Releases](../../releases) page and download the latest Windows `.zip` package:
+   * **`NowPlayingWidget-v1.0.0-win-x64-standalone.zip`** — Self-contained (bundles the .NET 8 runtime; easiest for most users).
+   * **`NowPlayingWidget-v1.0.0-win-x64-framework-dependent.zip`** — Smaller download, requires the **.NET 8 Desktop Runtime** already installed on Windows.
+2. Extract all files into a folder of your choice (keep any accompanying `.dll` files in the same folder as `.exe` file if present).
+3. Run `NowPlayingWidget-vx.x.x-win-x64-xxx.exe`.
+
+
+### Build from Source
+Requires the **.NET 8 SDK** on Windows. Run this to build a smaller framework-dependent release (requires the .NET 8 Desktop Runtime to run):
 
 ```powershell
-dotnet publish .\NowPlayingWidget\NowPlayingWidget.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o .\publish-standalone
+dotnet publish .\NowPlayingWidget\NowPlayingWidget.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o .\publish
 
 ```
 
-*(Adjust `.\NowPlayingWidget\NowPlayingWidget.csproj` if your project file is in a different path or has a different name.)*
+*(Change `--self-contained false` to `--self-contained true` if you want a standalone bundle that includes the .NET 8 runtime. Adjust the `.csproj` path if needed, and zip the output folder if sharing it.)*
+
 
 ### Run Automatically on Windows Startup
 
